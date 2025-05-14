@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Color Gradient</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            max-width: 250px;
+            transition: all 0.3s ease;
+        }
+        #controls.hidden {
+            display: none;
+        }
+        .control-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 100;
+        }
+    </style>
+
+<base target="_self">
+
+
+    <div id="controls">
+        <div class="control-group">
+            <label for="color1">Color 1</label>
+            <input type="color" id="color1" value="#ff0000">
+        </div>
+        <div class="control-group">
+            <label for="color2">Color 2</label>
+            <input type="color" id="color2" value="#00ff00">
+        </div>
+        <div class="control-group">
+            <label for="color3">Color 3</label>
+            <input type="color" id="color3" value="#0000ff">
+        </div>
+        <div class="control-group">
+            <label for="waveSpeed">Wave Speed</label>
+            <input type="range" id="waveSpeed" min="0" max="0.1" step="0.001" value="0.02">
+        </div>
+        <div class="control-group">
+            <label for="waveSize">Wave Size</label>
+            <input type="range" id="waveSize" min="0" max="200" step="1" value="50">
+        </div>
+        <div class="control-group">
+            <label for="sensitivity">Mouse Sensitivity</label>
+            <input type="range" id="sensitivity" min="0" max="2" step="0.1" value="1">
+        </div>
+    </div>
+    <button id="toggleControls">Toggle Controls</button>
+
+    <script>
+        const sketch = (p) => {
+            let color1, color2, color3;
+            let waveSpeed = 0.02;
+            let waveSize = 50;
+            let sensitivity = 1;
+            let time = 0;
+            let showControls = true;
+
+            p.setup = () => {
+                p.createCanvas(p.windowWidth, p.windowHeight);
+                p.colorMode(p.HSB, 360, 100, 100, 1);
+                p.noStroke();
+
+                // Initialize colors
+                color1 = p.color(0, 100, 100);
+                color2 = p.color(120, 100, 100);
+                color3 = p.color(240, 100, 100);
+
+                // Load control states from localStorage
+                const controlsState = localStorage.getItem('gradientControlsVisible');
+                if (controlsState !== null) {
+                    showControls = controlsState === 'true';
+                    document.getElementById('controls').classList.toggle('hidden', !showControls);
+                }
+
+                // Set up event listeners for controls
+                document.getElementById('color1').addEventListener('input', (e) => {
+                    color1 = p.color(e.target.value);
+                });
+                document.getElementById('color2').addEventListener('input', (e) => {
+                    color2 = p.color(e.target.value);
+                });
+                document.getElementById('color3').addEventListener('input', (e) => {
+                    color3 = p.color(e.target.value);
+                });
+                document.getElementById('waveSpeed').addEventListener('input', (e) => {
+                    waveSpeed = parseFloat(e.target.value);
+                });
+                document.getElementById('waveSize').addEventListener('input', (e) => {
+                    waveSize = parseInt(e.target.value);
+                });
+                document.getElementById('sensitivity').addEventListener('input', (e) => {
+                    sensitivity = parseFloat(e.target.value);
+                });
+                document.getElementById('toggleControls').addEventListener('click', () => {
+                    showControls = !showControls;
+                    document.getElementById('controls').classList.toggle('hidden', !showControls);
+                    localStorage.setItem('gradientControlsVisible', showControls);
+                });
+            };
+
+            p.draw = () => {
+                time += waveSpeed;
+                
+                // Calculate mouse influence
+                const mx = p.map(p.mouseX, 0, p.width, -1, 1) * sensitivity;
+                const my = p.map(p.mouseY, 0, p.height, -1, 1) * sensitivity;
+                
+                // Draw gradient with wave distortion
+                for (let y = 0; y < p.height; y += 5) {
+                    for (let x = 0; x < p.width; x += 5) {
+                        // Calculate wave distortion
+                        const waveX = p.sin(time + x * 0.01 + y * 0.01) * waveSize * mx;
+                        const waveY = p.cos(time + x * 0.01 - y * 0.01) * waveSize * my;
+                        
+                        // Calculate normalized position with wave effect
+                        const nx = (x + waveX) / p.width;
+                        const ny = (y + waveY) / p.height;
+                        
+                        // Create color gradient based on position
+                        let c;
+                        if (ny < 0.5) {
+                            c = p.lerpColor(color1, color2, ny * 2);
+                        } else {
+                            c = p.lerpColor(color2, color3, (ny - 0.5) * 2);
+                        }
+                        
+                        // Add some noise for organic feel
+                        const noiseVal = p.noise(x * 0.02, y * 0.02, time * 0.5) * 20;
+                        c = p.color(
+                            (p.hue(c) + noiseVal) % 360,
+                            p.saturation(c),
+                            p.brightness(c)
+                        );
+                        
+                        p.fill(c);
+                        p.rect(x, y, 5, 5);
+                    }
+                }
+            };
+
+            p.windowResized = () => {
+                p.resizeCanvas(p.windowWidth, p.windowHeight);
+            };
+        };
+
+        new p5(sketch);
+    </script>
+
+              
+          
+                
+          
+              
